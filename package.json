@@ -1,0 +1,31 @@
+{
+  "name": "remotestorage-module-flashcards",
+  "version": "1.0.0",
+  "description": "remoteStorage.js module for flashcards",
+  "main": "./dist/build.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node_modules/.bin/webpack --mode development -w",
+    "build": "node_modules/.bin/webpack ---mode production",
+    "docs": "node_modules/.bin/jsdoc2md --partial main.hbs --files index.js > README.md",
+    "version": "npm run build && git add dist/ && npm run docs && git add README.md"
+  },
+  "author": "Nick Jennings <nick@silverbucket.net>",
+  "license": "MIT",
+  "devDependencies": {
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.5",
+    "babel-preset-es2015": "^6.18.0",
+    "jsdoc-to-markdown": "^4.0.1",
+    "webpack": "^4.17.1",
+    "webpack-cli": "^3.1.0"
+  },
+  "keywords": [
+    "remotestorage",
+    "remotestorage-module"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/silverbucket/remotestorage-module-flashcards"
+  }
+}
