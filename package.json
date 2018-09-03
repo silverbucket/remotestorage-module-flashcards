@@ -1,8 +1,8 @@
 {
   "name": "remotestorage-module-flashcards",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "remoteStorage.js module for flashcards",
-  "main": "./dist/build.js",
+  "main": "./dist/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "node_modules/.bin/webpack --mode development -w",
