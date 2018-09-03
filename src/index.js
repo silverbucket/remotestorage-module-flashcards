@@ -7,7 +7,7 @@
  *
  * @module flashcards
  */
-const flashcardsBuilder = function (privateClient) {
+const Flashcards = function (privateClient, publicClient) {
 
   privateClient.declareType('flashcard', {
     "type": "object",
@@ -173,4 +173,4 @@ const flashcardsBuilder = function (privateClient) {
   return { exports: flashcards };
 };
 
-export default { name: 'flashcards', builder: flashcardsBuilder };
+export default { name: 'flashcards', builder: Flashcards };
