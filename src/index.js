@@ -58,6 +58,8 @@ const Flashcards = function (privateClient, publicClient) {
   const flashcards = {
     name: "flashcards",
 
+    on: privateClient.on,
+
     /**
      * Stores a flashcard
      *
@@ -77,16 +79,21 @@ const Flashcards = function (privateClient, publicClient) {
     store: function (flashcard) {
       const date = this._formattedDate(new Date());
 
-      flashcard.id = flashcard.id || date;
+      flashcard['@id'] = flashcard['@id'] || date;
       flashcard.group = flashcard.group || "default";
+      flashcard['@type'] = "flashcard";
+      flashcard.familiarity = flashcard.familiarity || 0;
+      flashcard.reviewedCount = flashcard.reviewedCount || 0;
+      flashcard.reviewedAt = flashcard.reviewedAt || date;
+      flashcard.updatedAt = date;
 
-      if (flashcard.createdAt) {
-        flashcard.updatedAt = date;
-      } else {
+      if (! flashcard.createdAt) {
         flashcard.createdAt = date;
       }
 
-      return privateClient.storeObject(flashcard.group + "/" + flashcard.id, flashcard)
+      return privateClient.storeObject("flashcard", flashcard.group + "/" + flashcard['@id'] , flashcard).then(() => {
+        return this.get(flashcard.group, flashcard['@id']);
+      });
     },
 
     /**
@@ -114,8 +121,8 @@ const Flashcards = function (privateClient, publicClient) {
      * @alias module:flashcards
      * @public
      */
-    get: function (id) {
-      return privateClient.getObject(id);
+    get: function (group, id) {
+      return privateClient.getObject(group + "/" + id);
     },
 
     /**
@@ -141,6 +148,7 @@ const Flashcards = function (privateClient, publicClient) {
      * @public
      */
     getAllByGroup: function (group) {
+      group = group || 'default';
       return privateClient.getAll(group + '/');
     },
 
@@ -160,13 +168,14 @@ const Flashcards = function (privateClient, publicClient) {
         if (num.length === 1) { num = "0" + num; }
         return num;
       };
-      const yrs = pad( date.getUTCFullYear().toString().substr(2) );
-      const mon = pad( date.getUTCMonth() + 1 );
-      const day = pad( date.getUTCDate() );
-      const hrs = pad( date.getUTCHours() );
-      const min = pad( date.getUTCMinutes() );
+      const yrs = pad( date.getUTCFullYear().toString() ),
+            mon = pad( date.getUTCMonth() + 1 ),
+            day = pad( date.getUTCDate() ),
+            hrs = pad( date.getUTCHours() ),
+            min = pad( date.getUTCMinutes() ),
+            sec = pad( date.getUTCSeconds() );
 
-      return yrs + mon + day + "-" + hrs + min;
+      return yrs + mon + day + "-" + hrs + min + sec;
     }
   };
 
