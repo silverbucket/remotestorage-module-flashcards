@@ -7,7 +7,7 @@
  *
  * @module flashcards
  */
-const Flashcards = function (privateClient, publicClient) {
+const Flashcards = function (privateClient) {
 
   privateClient.declareType('flashcard', {
     "type": "object",
@@ -91,7 +91,8 @@ const Flashcards = function (privateClient, publicClient) {
         flashcard.createdAt = date;
       }
 
-      return privateClient.storeObject("flashcard", flashcard.group + "/" + flashcard['@id'] , flashcard).then(() => {
+      return privateClient.storeObject("flashcard", flashcard.group + "/" + flashcard['@id'],
+                                       flashcard).then(() => {
         return this.get(flashcard.group, flashcard['@id']);
       });
     },
@@ -134,7 +135,7 @@ const Flashcards = function (privateClient, publicClient) {
      * @public
      */
     listGroups: function () {
-      return privateClient.getListing('/');
+      return privateClient.getListing();
     },
 
     /**
