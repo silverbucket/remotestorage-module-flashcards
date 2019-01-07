@@ -1,6 +1,6 @@
 {
   "name": "remotestorage-module-flashcards",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "remoteStorage.js module for flashcards",
   "main": "./dist/build.js",
   "scripts": {
