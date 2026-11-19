@@ -120,6 +120,7 @@ describe("store", () => {
             lapses: 0,
             state: 2 as const,
             lastReview: "2026-01-29T00:00:00.000Z",
+            firstReview: "2026-01-20T00:00:00.000Z",
         };
         const card = await flashcards.store({ frontText: "a", backText: "a", review });
         expect((await flashcards.get("default", card["@id"]))?.review).toEqual(review);

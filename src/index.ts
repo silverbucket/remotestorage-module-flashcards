@@ -30,6 +30,8 @@ export interface ReviewState {
     lapses: number;
     state: ReviewStateValue;
     lastReview?: string;
+    /** When the card was first reviewed (left the "new" state). */
+    firstReview?: string;
 }
 
 export interface Flashcard {
@@ -164,6 +166,8 @@ function normalizeReviewState(value: unknown): ReviewState | undefined {
     if (scheduledDays !== undefined) review.scheduledDays = scheduledDays;
     if (learningSteps !== undefined) review.learningSteps = learningSteps;
     if (lastReview) review.lastReview = lastReview;
+    const firstReview = normalizeDate(value.firstReview);
+    if (firstReview) review.firstReview = firstReview;
     return review;
 }
 

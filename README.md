@@ -73,7 +73,8 @@ JSON schemas, and the `Flashcard` / `ReviewState` types.
     "reps": 1,
     "lapses": 0,
     "state": 2,                // 0 new, 1 learning, 2 review, 3 relearning
-    "lastReview": "2026-01-02T03:04:05.000Z"
+    "lastReview": "2026-01-02T03:04:05.000Z",
+    "firstReview": "2026-01-02T03:04:05.000Z" // when it stopped being new
   },
   "reviewedCount": 1,          // kept for v1 readers
   "reviewedAt": "2026-01-02T03:04:05.000Z"
