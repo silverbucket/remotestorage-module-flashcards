@@ -25,6 +25,8 @@ export const reviewStateSchema = {
         /** 0 = new, 1 = learning, 2 = review, 3 = relearning */
         state: { type: "integer", enum: [0, 1, 2, 3] },
         lastReview: { type: "string", format: "date-time" },
+        /** When the card was first reviewed (left the "new" state). */
+        firstReview: { type: "string", format: "date-time" },
     },
     required: ["due", "stability", "difficulty", "reps", "lapses", "state"],
 } as const;
