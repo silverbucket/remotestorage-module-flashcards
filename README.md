@@ -99,3 +99,13 @@ bun test
 bun run typecheck
 bun run build
 ```
+
+## Releasing
+
+```sh
+npm version patch   # or minor / major; commits and tags vX.Y.Z
+git push --follow-tags
+```
+
+Pushing the tag runs `.github/workflows/publish.yml`, which checks that the tag
+matches `package.json`, runs the checks, and publishes to npm with provenance.
