@@ -129,9 +129,15 @@ If two devices log reviews for the same day before syncing with each other,
 remoteStorage keeps the server's copy of that day and the other device's
 entries for it are lost. The cards themselves are not affected.
 
-`.settings` and `.log` can't be used as group names. Apps on a version of
-this module before 2.2 ignore both, but drop `direction` and `reverseReview`
-from a card when they save it.
+`.settings` and `.log` can't be used as group names.
+
+Apps on a version of this module before 2.2 find no cards in either, but:
+
+- their `listGroups()` includes `.log`, and removing that "group" deletes the
+  review log;
+- they drop `direction` and `reverseReview` from a card when they save it.
+
+So update every app that uses the same storage.
 
 ## Upgrading from 1.x
 

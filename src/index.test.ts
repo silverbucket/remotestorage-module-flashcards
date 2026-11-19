@@ -260,10 +260,20 @@ describe("review log", () => {
         expect(flashcards.logReview({ ...first, at: "yesterday" })).rejects.toThrow();
     });
 
-    test("isn't a group", async () => {
+    test("isn't a group, and can't be removed as one", async () => {
         await flashcards.logReview(first);
         expect(await flashcards.listGroups()).toEqual([]);
         expect(await flashcards.getAll()).toEqual([]);
+        expect(flashcards.removeGroup(".log")).rejects.toThrow();
+        expect(flashcards.remove(".log", "2026-01-02")).rejects.toThrow();
+        expect(flashcards.store({ frontText: "a", backText: "a" }, { previousGroup: ".log" })).rejects.toThrow();
+        expect(await flashcards.getReviewLog()).toEqual([first]);
+    });
+
+    test("logging the same review twice counts it once", async () => {
+        await flashcards.logReview(first);
+        await flashcards.logReview(first);
+        expect(await flashcards.getReviewLog()).toEqual([first]);
     });
 
     test("normalizeReviewLog skips placeholders and bad entries", () => {

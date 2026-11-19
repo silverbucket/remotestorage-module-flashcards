@@ -143,6 +143,13 @@ export function normalizeGroup(group: unknown): string {
     return name || DEFAULT_GROUP;
 }
 
+/** A group name that cards can be stored under or removed from: not one of the reserved names. */
+function cardGroup(group: unknown): string {
+    const name = normalizeGroup(group);
+    if (RESERVED_GROUPS.includes(name)) throw new Error(`"${name}" can't be used as a group name`);
+    return name;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -323,9 +330,8 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
             const now = new Date().toISOString();
             const card = normalizeFlashcard({ ...input, "@id": input["@id"] || generateId(), updatedAt: now }, now);
             if (!card) throw new Error("Invalid flashcard");
-            if (RESERVED_GROUPS.includes(card.group)) throw new Error(`"${card.group}" can't be used as a group name`);
-            const previousGroup =
-                options.previousGroup === undefined ? undefined : normalizeGroup(options.previousGroup);
+            cardGroup(card.group);
+            const previousGroup = options.previousGroup === undefined ? undefined : cardGroup(options.previousGroup);
 
             // storeObject() mutates its argument (adds @context), so hand it a copy.
             await privateClient.storeObject("flashcard", cardPath(card.group, card["@id"]), { ...card });
@@ -343,7 +349,7 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
 
         /** Remove a single card. */
         async remove(group: string, id: string): Promise<void> {
-            await privateClient.remove(cardPath(normalizeGroup(group), id));
+            await privateClient.remove(cardPath(cardGroup(group), id));
         },
 
         /** Names of all groups that contain at least one card, sorted. */
@@ -371,7 +377,7 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
 
         /** Remove every card in a group (and with it, the group). */
         async removeGroup(group: string): Promise<void> {
-            const name = normalizeGroup(group);
+            const name = cardGroup(group);
             const listing = await privateClient.getListing(`${name}/`);
             if (!isRecord(listing)) return;
             await Promise.all(
@@ -391,19 +397,19 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
             const stored = await privateClient.getObject(SETTINGS_PATH, false);
             // Fields this version doesn't know (from a newer app) are kept as they are.
             const next = { ...(isRecord(stored) ? stored : {}), ...changes, updatedAt: new Date().toISOString() };
-            const settings = normalizeSettings(next);
-            for (const key of Object.keys(changes) as (keyof typeof changes)[]) {
-                if (changes[key] !== undefined && settings[key] !== changes[key]) throw new Error(`Invalid ${key}`);
-            }
+            // Rejects values the settings schema doesn't allow.
             await privateClient.storeObject("settings", SETTINGS_PATH, next);
-            return settings;
+            return normalizeSettings(next);
         },
 
         /** Add a review to the log. */
         async logReview(entry: ReviewLogEntry): Promise<void> {
             const valid = normalizeLogEntry(entry);
             if (!valid) throw new Error("Invalid review log entry");
-            await updateLog(valid, (entries) => [...entries, valid]);
+            // Logging the same review again (a retry) doesn't count it twice.
+            await updateLog(valid, (entries) =>
+                entries.some((e) => sameReview(e, valid)) ? entries : [...entries, valid],
+            );
         },
 
         /** Take a review back out of the log (when it is undone). */
