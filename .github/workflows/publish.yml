@@ -18,11 +18,11 @@ concurrency: publish
 
 jobs:
     publish:
+        # Publish only from master so provenance matches the commit built.
+        if: github.ref == 'refs/heads/master'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
-              with:
-                  ref: master
             - uses: oven-sh/setup-bun@v2
               with:
                   bun-version: 1.4.4
@@ -31,13 +31,21 @@ jobs:
                   node-version: 24
                   registry-url: https://registry.npmjs.org
             - run: bun install --frozen-lockfile
+            - run: bun run lint
             - name: Bump version
               run: |
                   git config user.name "github-actions[bot]"
                   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
                   npm version "${{ inputs.bump }}" -m "v%s"
+            - name: Check master has not moved
+              run: |
+                  git fetch --quiet origin master
+                  if [ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]; then
+                    echo "master moved since this run started; run Publish again."
+                    exit 1
+                  fi
             # prepublishOnly runs typecheck, tests, and build.
             - run: npm publish --provenance --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-            - run: git push origin HEAD:master --follow-tags
+            - run: git push --atomic origin HEAD:master "v$(node -p 'require("./package.json").version')"
