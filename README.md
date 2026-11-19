@@ -99,3 +99,9 @@ bun test
 bun run typecheck
 bun run build
 ```
+
+## Releasing
+
+In GitHub, open Actions > Publish > Run workflow and pick `patch`, `minor`, or
+`major`. The workflow bumps the version, runs the checks, publishes to npm with
+provenance, and pushes the version commit and tag to master.
