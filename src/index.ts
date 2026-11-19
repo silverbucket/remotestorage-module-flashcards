@@ -4,13 +4,23 @@
  * Cards live at `/flashcards/<group>/<id>`. Each group is a folder, so a
  * group exists exactly as long as it holds at least one card.
  *
+ * Two names at the top level are not groups: `.settings` (a document of
+ * settings shared by every device) and `.log/` (the review log, one
+ * document per day).
+ *
  * @module flashcards
  */
-import { flashcardSchema, reviewStateSchema } from "./schema.js";
+import { flashcardSchema, reviewLogSchema, reviewStateSchema, settingsSchema } from "./schema.js";
 
-export { flashcardSchema, reviewStateSchema };
+export { flashcardSchema, reviewLogSchema, reviewStateSchema, settingsSchema };
 
 export const DEFAULT_GROUP = "default";
+/** Path of the settings document, relative to `/flashcards/`. */
+export const SETTINGS_PATH = ".settings";
+/** Folder holding the review log, relative to `/flashcards/`. */
+export const LOG_FOLDER = ".log";
+/** Top-level names used for other data, so they can't be group names. */
+const RESERVED_GROUPS = [SETTINGS_PATH, LOG_FOLDER];
 
 /** FSRS card state. 0 = new, 1 = learning, 2 = review, 3 = relearning. */
 export type ReviewStateValue = 0 | 1 | 2 | 3;
@@ -34,6 +44,9 @@ export interface ReviewState {
     firstReview?: string;
 }
 
+/** Which way a card is studied: front → back, back → front, or each on its own schedule. */
+export type CardDirection = "forward" | "reverse" | "both";
+
 export interface Flashcard {
     "@id": string;
     "@type": "flashcard";
@@ -43,7 +56,12 @@ export interface Flashcard {
     group: string;
     createdAt: string;
     updatedAt: string;
+    /** Scheduling for front → back. */
     review?: ReviewState;
+    /** Which way the card is studied. Absent means "forward". */
+    direction?: CardDirection;
+    /** Scheduling for back → front, separate from `review`. */
+    reverseReview?: ReviewState;
     /** @deprecated v1 field, kept so older apps can still read the card. */
     familiarity?: number;
     reviewedCount?: number;
@@ -53,6 +71,28 @@ export interface Flashcard {
 /** What callers pass to `store()`: a card with the generated fields optional. */
 export type FlashcardInput = Omit<Flashcard, "@id" | "@type" | "group" | "createdAt" | "updatedAt"> &
     Partial<Pick<Flashcard, "@id" | "@type" | "group" | "createdAt" | "updatedAt">>;
+
+/** Settings shared by every device that uses the same storage. */
+export interface Settings {
+    /** Most new cards to start per day. */
+    newCardsPerDay?: number;
+    updatedAt?: string;
+}
+
+/** A single review, as recorded in the review log. */
+export interface ReviewLogEntry {
+    /** When the review happened. */
+    at: string;
+    cardId: string;
+    /** The card's group at the time. */
+    group?: string;
+    /** 1 = again, 2 = hard, 3 = good, 4 = easy. */
+    rating: 1 | 2 | 3 | 4;
+    /** The card's state before this review (0 = it was new). */
+    state: ReviewStateValue;
+    /** Set when the back → front direction was reviewed. */
+    reverse?: true;
+}
 
 export interface StoreOptions {
     /**
@@ -130,6 +170,9 @@ export function normalizeFlashcard(value: unknown, fallbackDate = new Date().toI
 
     const review = normalizeReviewState(value.review);
     if (review) card.review = review;
+    if (value.direction === "reverse" || value.direction === "both") card.direction = value.direction;
+    const reverseReview = normalizeReviewState(value.reverseReview);
+    if (reverseReview) card.reverseReview = reverseReview;
     if (typeof value.familiarity === "number") card.familiarity = value.familiarity;
     if (Number.isInteger(value.reviewedCount) && (value.reviewedCount as number) >= 0) {
         card.reviewedCount = value.reviewedCount as number;
@@ -171,11 +214,60 @@ function normalizeReviewState(value: unknown): ReviewState | undefined {
     return review;
 }
 
+/** Turn a stored settings document into `Settings`, dropping anything invalid. */
+export function normalizeSettings(value: unknown): Settings {
+    const settings: Settings = {};
+    if (!isRecord(value)) return settings;
+    if (Number.isInteger(value.newCardsPerDay) && (value.newCardsPerDay as number) >= 0) {
+        settings.newCardsPerDay = value.newCardsPerDay as number;
+    }
+    const updatedAt = normalizeDate(value.updatedAt);
+    if (updatedAt) settings.updatedAt = updatedAt;
+    return settings;
+}
+
+function normalizeLogEntry(value: unknown): ReviewLogEntry | undefined {
+    if (!isRecord(value)) return undefined;
+    const at = normalizeDate(value.at);
+    const { cardId, rating, state } = value;
+    if (!at || typeof cardId !== "string" || cardId === "") return undefined;
+    if (!Number.isInteger(rating) || (rating as number) < 1 || (rating as number) > 4) return undefined;
+    if (!Number.isInteger(state) || (state as number) < 0 || (state as number) > 3) return undefined;
+    const entry: ReviewLogEntry = {
+        at,
+        cardId,
+        rating: rating as ReviewLogEntry["rating"],
+        state: state as ReviewStateValue,
+    };
+    if (typeof value.group === "string" && value.group !== "") entry.group = value.group;
+    if (value.reverse === true) entry.reverse = true;
+    return entry;
+}
+
+/**
+ * The valid entries of a stored review-log document (one day), oldest
+ * first. Returns an empty list for anything that isn't a log document.
+ */
+export function normalizeReviewLog(value: unknown): ReviewLogEntry[] {
+    if (!isRecord(value) || !Array.isArray(value.entries)) return [];
+    const entries: ReviewLogEntry[] = [];
+    for (const item of value.entries) {
+        const entry = normalizeLogEntry(item);
+        if (entry) entries.push(entry);
+    }
+    return entries.sort((a, b) => a.at.localeCompare(b.at));
+}
+
+const sameReview = (a: ReviewLogEntry, b: ReviewLogEntry) =>
+    a.at === b.at && a.cardId === b.cardId && !a.reverse === !b.reverse;
+
 function generateId(): string {
     return globalThis.crypto.randomUUID();
 }
 
 const cardPath = (group: string, id: string) => `${group}/${id}`;
+/** Log documents are named after the UTC day of their reviews. */
+const logPath = (at: string) => `${LOG_FOLDER}/${at.slice(0, 10)}`;
 
 function toCards(items: unknown): Flashcard[] {
     if (!isRecord(items)) return [];
@@ -189,6 +281,26 @@ function toCards(items: unknown): Flashcard[] {
 
 export function createFlashcardsApi(privateClient: PrivateClient) {
     privateClient.declareType("flashcard", flashcardSchema);
+    privateClient.declareType("settings", settingsSchema);
+    privateClient.declareType("review-log", reviewLogSchema);
+
+    // Log writes read a day's document and store it back, so they run one at a time.
+    let logQueue: Promise<unknown> = Promise.resolve();
+    function updateLog(entry: ReviewLogEntry, change: (entries: ReviewLogEntry[]) => ReviewLogEntry[]): Promise<void> {
+        const run = async () => {
+            const path = logPath(entry.at);
+            const before = normalizeReviewLog(await privateClient.getObject(path, false));
+            const entries = change(before);
+            if (entries.length === 0) {
+                if (before.length > 0) await privateClient.remove(path);
+            } else {
+                await privateClient.storeObject("review-log", path, { date: entry.at.slice(0, 10), entries });
+            }
+        };
+        const result = logQueue.then(run, run);
+        logQueue = result.catch(() => {});
+        return result;
+    }
 
     return {
         name: "flashcards" as const,
@@ -211,6 +323,7 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
             const now = new Date().toISOString();
             const card = normalizeFlashcard({ ...input, "@id": input["@id"] || generateId(), updatedAt: now }, now);
             if (!card) throw new Error("Invalid flashcard");
+            if (RESERVED_GROUPS.includes(card.group)) throw new Error(`"${card.group}" can't be used as a group name`);
             const previousGroup =
                 options.previousGroup === undefined ? undefined : normalizeGroup(options.previousGroup);
 
@@ -240,6 +353,7 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
             return Object.keys(listing)
                 .filter((key) => key.endsWith("/"))
                 .map((key) => key.slice(0, -1))
+                .filter((name) => !RESERVED_GROUPS.includes(name))
                 .sort((a, b) => a.localeCompare(b));
         },
 
@@ -265,6 +379,47 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
                     .filter((key) => !key.endsWith("/"))
                     .map((id) => privateClient.remove(cardPath(name, id))),
             );
+        },
+
+        /** Settings shared by every device. Empty when none have been saved. */
+        async getSettings(maxAge?: false | number): Promise<Settings> {
+            return normalizeSettings(await privateClient.getObject(SETTINGS_PATH, maxAge));
+        },
+
+        /** Change some settings, keeping the others. Resolves with all of them. */
+        async setSettings(changes: Omit<Settings, "updatedAt">): Promise<Settings> {
+            const stored = await privateClient.getObject(SETTINGS_PATH, false);
+            // Fields this version doesn't know (from a newer app) are kept as they are.
+            const next = { ...(isRecord(stored) ? stored : {}), ...changes, updatedAt: new Date().toISOString() };
+            const settings = normalizeSettings(next);
+            for (const key of Object.keys(changes) as (keyof typeof changes)[]) {
+                if (changes[key] !== undefined && settings[key] !== changes[key]) throw new Error(`Invalid ${key}`);
+            }
+            await privateClient.storeObject("settings", SETTINGS_PATH, next);
+            return settings;
+        },
+
+        /** Add a review to the log. */
+        async logReview(entry: ReviewLogEntry): Promise<void> {
+            const valid = normalizeLogEntry(entry);
+            if (!valid) throw new Error("Invalid review log entry");
+            await updateLog(valid, (entries) => [...entries, valid]);
+        },
+
+        /** Take a review back out of the log (when it is undone). */
+        async unlogReview(entry: ReviewLogEntry): Promise<void> {
+            const valid = normalizeLogEntry(entry);
+            if (!valid) throw new Error("Invalid review log entry");
+            await updateLog(valid, (entries) => entries.filter((e) => !sameReview(e, valid)));
+        },
+
+        /** Every logged review, oldest first. */
+        async getReviewLog(maxAge?: false | number): Promise<ReviewLogEntry[]> {
+            const days = await privateClient.getAll(`${LOG_FOLDER}/`, maxAge);
+            if (!isRecord(days)) return [];
+            return Object.values(days)
+                .flatMap(normalizeReviewLog)
+                .sort((a, b) => a.at.localeCompare(b.at));
         },
     };
 }

@@ -43,10 +43,51 @@ export const flashcardSchema = {
         createdAt: { type: "string", format: "date-time" },
         updatedAt: { type: "string", format: "date-time" },
         review: reviewStateSchema,
+        /** Which way the card is studied. Absent means "forward" (front → back). */
+        direction: { enum: ["forward", "reverse", "both"] },
+        /** Scheduling for back → front, separate from `review`. */
+        reverseReview: reviewStateSchema,
         // Kept for compatibility with v1 consumers; derived from `review`.
         familiarity: { type: "number" },
         reviewedCount: { type: "integer", minimum: 0 },
         reviewedAt: { type: "string", format: "date-time" },
     },
     required: ["@id", "@type", "frontText", "backText", "group", "createdAt", "updatedAt"],
+} as const;
+
+/** App settings shared by every device, stored at `/flashcards/.settings`. */
+export const settingsSchema = {
+    type: "object",
+    properties: {
+        /** Most new cards to start per day. */
+        newCardsPerDay: { type: "integer", minimum: 0 },
+        updatedAt: { type: "string", format: "date-time" },
+    },
+} as const;
+
+/** One day of reviews, stored at `/flashcards/.log/<YYYY-MM-DD>` (UTC day). */
+export const reviewLogSchema = {
+    type: "object",
+    properties: {
+        date: { type: "string" },
+        entries: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    at: { type: "string", format: "date-time" },
+                    cardId: { type: "string", minLength: 1 },
+                    group: { type: "string" },
+                    /** 1 = again, 2 = hard, 3 = good, 4 = easy */
+                    rating: { type: "integer", enum: [1, 2, 3, 4] },
+                    /** The card's state before this review. */
+                    state: { type: "integer", enum: [0, 1, 2, 3] },
+                    /** Set when the back → front direction was reviewed. */
+                    reverse: { type: "boolean" },
+                },
+                required: ["at", "cardId", "rating", "state"],
+            },
+        },
+    },
+    required: ["date", "entries"],
 } as const;

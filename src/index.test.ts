@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import RemoteStorage from "remotestoragejs";
-import Flashcards, { type FlashcardsApi, normalizeDate, normalizeFlashcard, normalizeGroup } from "./index";
+import Flashcards, {
+    type FlashcardsApi,
+    normalizeDate,
+    normalizeFlashcard,
+    normalizeGroup,
+    normalizeReviewLog,
+} from "./index";
 
 let flashcards: FlashcardsApi;
 let rs: RemoteStorage;
@@ -126,6 +132,29 @@ describe("store", () => {
         expect((await flashcards.get("default", card["@id"]))?.review).toEqual(review);
     });
 
+    test("stores direction and a separate reverse schedule", async () => {
+        const reverseReview = {
+            due: "2026-03-01T00:00:00.000Z",
+            stability: 1,
+            difficulty: 5,
+            reps: 2,
+            lapses: 1,
+            state: 2 as const,
+        };
+        const card = await flashcards.store({ frontText: "a", backText: "a", direction: "both", reverseReview });
+        const stored = await flashcards.get("default", card["@id"]);
+        expect(stored?.direction).toBe("both");
+        expect(stored?.reverseReview).toEqual(reverseReview);
+        expect(stored?.review).toBeUndefined();
+        // "forward" is the default and isn't written.
+        expect(await flashcards.store({ ...card, direction: "forward" })).not.toHaveProperty("direction");
+    });
+
+    test("rejects the names used for settings and the log as groups", async () => {
+        expect(flashcards.store({ frontText: "a", backText: "a", group: ".log" })).rejects.toThrow();
+        expect(flashcards.store({ frontText: "a", backText: "a", group: ".settings" })).rejects.toThrow();
+    });
+
     test("rejects group names with slashes", async () => {
         expect(flashcards.store({ frontText: "a", backText: "a", group: "a/b" })).rejects.toThrow();
     });
@@ -170,5 +199,75 @@ describe("listing and removal", () => {
         expect(await flashcards.listGroups()).toEqual([]);
         expect(await flashcards.getAll()).toEqual([]);
         expect(await flashcards.get("default", "missing")).toBeUndefined();
+    });
+});
+
+describe("settings", () => {
+    test("are empty until saved, then merge", async () => {
+        expect(await flashcards.getSettings()).toEqual({});
+        const saved = await flashcards.setSettings({ newCardsPerDay: 5 });
+        expect(saved.newCardsPerDay).toBe(5);
+        expect(saved.updatedAt).toBeString();
+        expect(await flashcards.getSettings()).toEqual(saved);
+    });
+
+    test("keep fields this version doesn't know", async () => {
+        await rs.scope("/flashcards/").storeFile("application/json", ".settings", JSON.stringify({ theme: "dark" }));
+        await flashcards.setSettings({ newCardsPerDay: 0 });
+        const raw = (await rs.scope("/flashcards/").getObject(".settings")) as Record<string, unknown>;
+        expect(raw.theme).toBe("dark");
+        expect(raw.newCardsPerDay).toBe(0);
+    });
+
+    test("reject invalid values", async () => {
+        expect(flashcards.setSettings({ newCardsPerDay: -1 })).rejects.toThrow();
+        expect(flashcards.setSettings({ newCardsPerDay: 1.5 })).rejects.toThrow();
+        expect(await flashcards.getSettings()).toEqual({});
+    });
+
+    test("don't show up as a group or a card", async () => {
+        await flashcards.setSettings({ newCardsPerDay: 5 });
+        expect(await flashcards.listGroups()).toEqual([]);
+        expect(await flashcards.getAll()).toEqual([]);
+    });
+});
+
+describe("review log", () => {
+    const first = { at: "2026-01-02T23:59:00.000Z", cardId: "a", group: "food", rating: 3 as const, state: 0 as const };
+    const second = { at: "2026-01-03T00:01:00.000Z", cardId: "a", rating: 1 as const, state: 2 as const };
+
+    test("stores reviews one document per UTC day and reads them back in order", async () => {
+        // Logged at once, out of order: writes to one day must not overwrite each other.
+        const third = { ...second, at: "2026-01-03T08:00:00.000Z", cardId: "b", reverse: true as const };
+        await Promise.all([flashcards.logReview(third), flashcards.logReview(second), flashcards.logReview(first)]);
+        expect(await flashcards.getReviewLog()).toEqual([first, second, third]);
+        const listing = await rs.scope("/flashcards/").getListing(".log/");
+        expect(Object.keys(listing as object).sort()).toEqual(["2026-01-02", "2026-01-03"]);
+    });
+
+    test("unlogReview removes just that review", async () => {
+        const reverse = { ...first, reverse: true as const };
+        await flashcards.logReview(first);
+        await flashcards.logReview(reverse);
+        await flashcards.unlogReview(first);
+        expect(await flashcards.getReviewLog()).toEqual([reverse]);
+        await flashcards.unlogReview(reverse);
+        expect(await flashcards.getReviewLog()).toEqual([]);
+    });
+
+    test("rejects invalid entries", async () => {
+        expect(flashcards.logReview({ ...first, rating: 5 as never })).rejects.toThrow();
+        expect(flashcards.logReview({ ...first, at: "yesterday" })).rejects.toThrow();
+    });
+
+    test("isn't a group", async () => {
+        await flashcards.logReview(first);
+        expect(await flashcards.listGroups()).toEqual([]);
+        expect(await flashcards.getAll()).toEqual([]);
+    });
+
+    test("normalizeReviewLog skips placeholders and bad entries", () => {
+        expect(normalizeReviewLog(true)).toEqual([]);
+        expect(normalizeReviewLog({ entries: [first, { at: "x" }, null] })).toEqual([first]);
     });
 });
