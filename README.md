@@ -102,10 +102,6 @@ bun run build
 
 ## Releasing
 
-```sh
-npm version patch   # or minor / major; commits and tags vX.Y.Z
-git push --follow-tags
-```
-
-Pushing the tag runs `.github/workflows/publish.yml`, which checks that the tag
-matches `package.json`, runs the checks, and publishes to npm with provenance.
+In GitHub, open Actions > Publish > Run workflow and pick `patch`, `minor`, or
+`major`. The workflow bumps the version, runs the checks, publishes to npm with
+provenance, and pushes the version commit and tag to master.

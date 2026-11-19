@@ -1,18 +1,28 @@
 name: Publish
 
+# Run from the Actions tab: Publish > Run workflow > pick the version bump.
 on:
-    push:
-        tags: ["v*"]
+    workflow_dispatch:
+        inputs:
+            bump:
+                description: Version bump
+                type: choice
+                options: [patch, minor, major]
+                default: patch
 
 permissions:
-    contents: read
+    contents: write # push the version commit and tag
     id-token: write # npm trusted publishing and provenance
+
+concurrency: publish
 
 jobs:
     publish:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
+              with:
+                  ref: master
             - uses: oven-sh/setup-bun@v2
               with:
                   bun-version: 1.4.4
@@ -20,15 +30,14 @@ jobs:
               with:
                   node-version: 24
                   registry-url: https://registry.npmjs.org
-            - name: Check tag matches package.json version
-              run: |
-                  version="v$(node -p 'require("./package.json").version')"
-                  if [ "$version" != "$GITHUB_REF_NAME" ]; then
-                    echo "Tag $GITHUB_REF_NAME does not match package.json $version"
-                    exit 1
-                  fi
             - run: bun install --frozen-lockfile
+            - name: Bump version
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  npm version "${{ inputs.bump }}" -m "v%s"
             # prepublishOnly runs typecheck, tests, and build.
             - run: npm publish --provenance --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - run: git push origin HEAD:master --follow-tags
