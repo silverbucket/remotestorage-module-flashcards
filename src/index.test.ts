@@ -3,9 +3,10 @@ import RemoteStorage from "remotestoragejs";
 import Flashcards, { type FlashcardsApi, normalizeDate, normalizeFlashcard, normalizeGroup } from "./index";
 
 let flashcards: FlashcardsApi;
+let rs: RemoteStorage;
 
 beforeEach(async () => {
-    const rs = new RemoteStorage({ modules: [Flashcards], cache: true, changeEvents: { local: false } });
+    rs = new RemoteStorage({ modules: [Flashcards], cache: true, changeEvents: { local: false } });
     rs.access.claim("flashcards", "rw");
     rs.caching.enable("/flashcards/");
     await new Promise<void>((resolve) => rs.on("ready", () => resolve()));
@@ -28,11 +29,12 @@ describe("normalizeDate", () => {
 
 describe("normalizeGroup", () => {
     test("defaults empty names", () => {
-        expect(normalizeGroup("  ")).toBe("default");
+        expect(normalizeGroup("")).toBe("default");
         expect(normalizeGroup(undefined)).toBe("default");
     });
-    test("trims", () => {
-        expect(normalizeGroup(" food ")).toBe("food");
+    test("keeps names as stored", () => {
+        expect(normalizeGroup(" food ")).toBe(" food ");
+        expect(normalizeGroup("  ")).toBe("  ");
     });
     test("rejects slashes", () => {
         expect(() => normalizeGroup("a/b")).toThrow();
@@ -145,6 +147,22 @@ describe("listing and removal", () => {
         expect(await flashcards.getAllByGroup("food")).toHaveLength(1);
         await flashcards.removeGroup("food");
         expect(await flashcards.listGroups()).toEqual(["verbs"]);
+    });
+
+    test("reads v1 cards whose group has surrounding spaces", async () => {
+        const v1 = {
+            "@id": "old",
+            "@type": "flashcard",
+            frontText: "a",
+            group: " food ",
+            createdAt: "20181025-143005",
+        };
+        await rs.scope("/flashcards/").storeFile("application/json", " food /old", JSON.stringify(v1));
+        expect(await flashcards.listGroups()).toEqual([" food "]);
+        expect((await flashcards.get(" food ", "old"))?.group).toBe(" food ");
+        expect(await flashcards.getAll()).toHaveLength(1);
+        await flashcards.removeGroup(" food ");
+        expect(await flashcards.listGroups()).toEqual([]);
     });
 
     test("empty storage", async () => {

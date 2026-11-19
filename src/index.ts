@@ -89,11 +89,12 @@ export function normalizeDate(value: unknown): string | undefined {
 }
 
 /**
- * Normalize a group name: trimmed, `default` when empty. Group names become
- * a path segment, so `/` is not allowed.
+ * Normalize a group name: `default` when empty, otherwise unchanged so that
+ * v1 groups stay at the path they were stored under. Group names become a
+ * path segment, so `/` is not allowed.
  */
 export function normalizeGroup(group: unknown): string {
-    const name = typeof group === "string" ? group.trim() : "";
+    const name = typeof group === "string" ? group : "";
     if (name.includes("/")) {
         throw new Error(`Group names cannot contain "/": ${name}`);
     }
@@ -206,15 +207,14 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
             const now = new Date().toISOString();
             const card = normalizeFlashcard({ ...input, "@id": input["@id"] || generateId(), updatedAt: now }, now);
             if (!card) throw new Error("Invalid flashcard");
+            const previousGroup =
+                options.previousGroup === undefined ? undefined : normalizeGroup(options.previousGroup);
 
             // storeObject() mutates its argument (adds @context), so hand it a copy.
             await privateClient.storeObject("flashcard", cardPath(card.group, card["@id"]), { ...card });
 
-            if (options.previousGroup !== undefined) {
-                const previousGroup = normalizeGroup(options.previousGroup);
-                if (previousGroup !== card.group) {
-                    await privateClient.remove(cardPath(previousGroup, card["@id"]));
-                }
+            if (previousGroup !== undefined && previousGroup !== card.group) {
+                await privateClient.remove(cardPath(previousGroup, card["@id"]));
             }
             return card;
         },
@@ -254,7 +254,7 @@ export function createFlashcardsApi(privateClient: PrivateClient) {
         /** Remove every card in a group (and with it, the group). */
         async removeGroup(group: string): Promise<void> {
             const name = normalizeGroup(group);
-            const listing = await privateClient.getListing(`${name}/`, false);
+            const listing = await privateClient.getListing(`${name}/`);
             if (!isRecord(listing)) return;
             await Promise.all(
                 Object.keys(listing)
