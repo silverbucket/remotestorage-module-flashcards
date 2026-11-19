@@ -10,8 +10,12 @@
 export const reviewStateSchema = {
     type: "object",
     properties: {
+        /** Scheduler that produced this state, e.g. "FSRS-7". */
+        algorithm: { type: "string" },
         due: { type: "string", format: "date-time" },
         stability: { type: "number", minimum: 0 },
+        /** FSRS-7 short-term stability component. */
+        stabilityFast: { type: "number", minimum: 0 },
         difficulty: { type: "number", minimum: 0 },
         elapsedDays: { type: "number", minimum: 0 },
         scheduledDays: { type: "number", minimum: 0 },

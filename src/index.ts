@@ -16,8 +16,12 @@ export const DEFAULT_GROUP = "default";
 export type ReviewStateValue = 0 | 1 | 2 | 3;
 
 export interface ReviewState {
+    /** Scheduler that produced this state, e.g. "FSRS-7". */
+    algorithm?: string;
     due: string;
     stability: number;
+    /** FSRS-7 short-term stability component. */
+    stabilityFast?: number;
     difficulty: number;
     elapsedDays?: number;
     scheduledDays?: number;
@@ -148,6 +152,9 @@ function normalizeReviewState(value: unknown): ReviewState | undefined {
     if (state === undefined || state > 3) return undefined;
 
     const review: ReviewState = { due, stability, difficulty, reps, lapses, state: state as ReviewStateValue };
+    if (typeof value.algorithm === "string" && value.algorithm !== "") review.algorithm = value.algorithm;
+    const stabilityFast = num(value.stabilityFast);
+    if (stabilityFast !== undefined) review.stabilityFast = stabilityFast;
     const elapsedDays = num(value.elapsedDays);
     const scheduledDays = num(value.scheduledDays);
     const learningSteps = int(value.learningSteps);

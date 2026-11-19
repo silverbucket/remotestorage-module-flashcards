@@ -62,8 +62,10 @@ JSON schemas, and the `Flashcard` / `ReviewState` types.
   "createdAt": "2026-01-02T03:04:05.000Z",
   "updatedAt": "2026-01-02T03:04:05.000Z",
   "review": {                  // optional, absent until first review
+    "algorithm": "FSRS-7",
     "due": "2026-01-05T03:04:05.000Z",
     "stability": 3.17,
+    "stabilityFast": 2.81,     // FSRS-7 only
     "difficulty": 5.28,
     "elapsedDays": 0,
     "scheduledDays": 3,

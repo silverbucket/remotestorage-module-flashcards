@@ -109,6 +109,8 @@ describe("store", () => {
 
     test("stores review state", async () => {
         const review = {
+            algorithm: "FSRS-7",
+            stabilityFast: 2.5,
             due: "2026-02-01T00:00:00.000Z",
             stability: 3.2,
             difficulty: 5.1,
