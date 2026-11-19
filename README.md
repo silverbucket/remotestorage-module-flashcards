@@ -4,7 +4,8 @@ A [remoteStorage.js](https://remotestorage.io) data module for flashcards,
 including spaced-repetition review state (FSRS card model).
 
 Cards are stored at `/flashcards/<group>/<id>`. A group exists as long as it
-contains at least one card.
+contains at least one card. Settings shared between devices and a log of
+reviews are stored next to them.
 
 ## Install
 
@@ -41,13 +42,20 @@ await flashcards.store({ ...card, group: "drinks" }, { previousGroup: "food" });
 | `getAllByGroup(group, maxAge?)` | Cards in a group. |
 | `getAll(maxAge?)` | Cards in all groups. |
 | `removeGroup(group)` | Delete every card in a group. |
-| `on("change", handler)` / `removeEventListener(...)` | remoteStorage.js change events for the scope. |
+| `getSettings(maxAge?)` | Settings shared by every device (`{}` until some are saved). |
+| `setSettings(changes)` | Change some settings and keep the rest. Resolves with all of them. |
+| `logReview(entry)` | Add a review to the log. |
+| `unlogReview(entry)` | Take a review back out (same `at`, `cardId` and direction). |
+| `getReviewLog(maxAge?)` | Every logged review, oldest first. |
+| `on("change", handler)` / `removeEventListener(...)` | remoteStorage.js change events for the scope, including the settings (`.settings`) and log (`.log/<day>`) documents. |
 
 `maxAge` is passed through to remoteStorage.js; use `false` to read from the
 local cache without waiting for a sync.
 
-Also exported: `normalizeFlashcard`, `normalizeDate`, `normalizeGroup`, the
-JSON schemas, and the `Flashcard` / `ReviewState` types.
+Also exported: `normalizeFlashcard`, `normalizeSettings`, `normalizeReviewLog`
+(for the `newValue` of change events), `normalizeDate`, `normalizeGroup`,
+`SETTINGS_PATH`, `LOG_FOLDER`, the JSON schemas, and the `Flashcard` /
+`ReviewState` / `Settings` / `ReviewLogEntry` types.
 
 ## Data format
 
@@ -76,10 +84,60 @@ JSON schemas, and the `Flashcard` / `ReviewState` types.
     "lastReview": "2026-01-02T03:04:05.000Z",
     "firstReview": "2026-01-02T03:04:05.000Z" // when it stopped being new
   },
+  "direction": "both",         // optional: "reverse" (back → front) or "both"; absent = front → back
+  "reverseReview": { /* same shape as review, for back → front */ },
   "reviewedCount": 1,          // kept for v1 readers
   "reviewedAt": "2026-01-02T03:04:05.000Z"
 }
 ```
+
+### Settings
+
+One document at `/flashcards/.settings`, so every device uses the same values:
+
+```jsonc
+{
+  "newCardsPerDay": 20,        // optional
+  "updatedAt": "2026-01-02T03:04:05.000Z"
+}
+```
+
+`setSettings()` keeps fields it doesn't know, so apps can add their own.
+
+### Review log
+
+One document per UTC day at `/flashcards/.log/<YYYY-MM-DD>`, so each review is
+a small write:
+
+```jsonc
+{
+  "date": "2026-01-02",
+  "entries": [
+    {
+      "at": "2026-01-02T03:04:05.000Z",
+      "cardId": "3f0c…",
+      "group": "food",         // the card's group at the time
+      "rating": 3,             // 1 again, 2 hard, 3 good, 4 easy
+      "state": 0,              // the card's state before the review (0 = it was new)
+      "reverse": true          // only for back → front reviews
+    }
+  ]
+}
+```
+
+If two devices log reviews for the same day before syncing with each other,
+remoteStorage keeps the server's copy of that day and the other device's
+entries for it are lost. The cards themselves are not affected.
+
+`.settings` and `.log` can't be used as group names.
+
+Apps on a version of this module before 2.2 find no cards in either, but:
+
+- their `listGroups()` includes `.log`, and removing that "group" deletes the
+  review log;
+- they drop `direction` and `reverseReview` from a card when they save it.
+
+So update every app that uses the same storage.
 
 ## Upgrading from 1.x
 
