@@ -1,6 +1,6 @@
 {
     "name": "remotestorage-module-flashcards",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "description": "remoteStorage.js data module for flashcards with spaced-repetition review state",
     "type": "module",
     "main": "./dist/index.js",
