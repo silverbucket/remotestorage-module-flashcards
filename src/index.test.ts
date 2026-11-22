@@ -77,6 +77,11 @@ describe("normalizeFlashcard", () => {
             updatedAt: "2018-10-26T09:00:00.000Z",
         });
     });
+    test("keeps extra, and drops it when empty or not text", () => {
+        expect(normalizeFlashcard({ "@id": "x", extra: "Jedno pivo, prosím." })?.extra).toBe("Jedno pivo, prosím.");
+        expect(normalizeFlashcard({ "@id": "x", extra: "" })).not.toHaveProperty("extra");
+        expect(normalizeFlashcard({ "@id": "x", extra: 3 })).not.toHaveProperty("extra");
+    });
     test("drops an invalid review state", () => {
         const card = normalizeFlashcard({ "@id": "x", group: "g", review: { due: "nope" } });
         expect(card?.review).toBeUndefined();
@@ -113,6 +118,11 @@ describe("store", () => {
         expect(await flashcards.getAllByGroup("one")).toHaveLength(0);
         expect(await flashcards.getAllByGroup("two")).toHaveLength(1);
         expect(await flashcards.listGroups()).toEqual(["two"]);
+    });
+
+    test("stores extra", async () => {
+        const card = await flashcards.store({ frontText: "pivo", backText: "beer", extra: "Jedno pivo, prosím." });
+        expect((await flashcards.get("default", card["@id"]))?.extra).toBe("Jedno pivo, prosím.");
     });
 
     test("stores review state", async () => {

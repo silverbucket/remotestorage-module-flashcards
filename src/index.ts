@@ -53,6 +53,8 @@ export interface Flashcard {
     frontText: string;
     backText: string;
     hint?: string;
+    /** More about the answer (an example, notes, a table), shown with it. */
+    extra?: string;
     group: string;
     createdAt: string;
     updatedAt: string;
@@ -174,6 +176,7 @@ export function normalizeFlashcard(value: unknown, fallbackDate = new Date().toI
         updatedAt: normalizeDate(value.updatedAt) ?? createdAt,
     };
     if (typeof value.hint === "string" && value.hint !== "") card.hint = value.hint;
+    if (typeof value.extra === "string" && value.extra !== "") card.extra = value.extra;
 
     const review = normalizeReviewState(value.review);
     if (review) card.review = review;
