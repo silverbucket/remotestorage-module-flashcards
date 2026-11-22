@@ -39,6 +39,8 @@ export const flashcardSchema = {
         frontText: { type: "string" },
         backText: { type: "string" },
         hint: { type: "string" },
+        /** More about the answer (an example, notes, a table), shown with it. */
+        extra: { type: "string" },
         group: { type: "string", minLength: 1 },
         createdAt: { type: "string", format: "date-time" },
         updatedAt: { type: "string", format: "date-time" },

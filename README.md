@@ -66,6 +66,7 @@ Also exported: `normalizeFlashcard`, `normalizeSettings`, `normalizeReviewLog`
   "frontText": "pivo",
   "backText": "beer",
   "hint": "magical drink",     // optional
+  "extra": "Jedno pivo, prosím.", // optional: more about the answer, shown with it
   "group": "food",
   "createdAt": "2026-01-02T03:04:05.000Z",
   "updatedAt": "2026-01-02T03:04:05.000Z",
