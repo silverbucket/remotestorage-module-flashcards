@@ -52,7 +52,10 @@ export interface Flashcard {
     "@type": "flashcard";
     frontText: string;
     backText: string;
+    /** A hint for the front, for when it is the question: front → back. */
     hint?: string;
+    /** A hint for the back, for when it is the question: back → front. */
+    backHint?: string;
     /** More about the answer (an example, notes, a table), shown with it. */
     extra?: string;
     group: string;
@@ -176,6 +179,7 @@ export function normalizeFlashcard(value: unknown, fallbackDate = new Date().toI
         updatedAt: normalizeDate(value.updatedAt) ?? createdAt,
     };
     if (typeof value.hint === "string" && value.hint !== "") card.hint = value.hint;
+    if (typeof value.backHint === "string" && value.backHint !== "") card.backHint = value.backHint;
     if (typeof value.extra === "string" && value.extra !== "") card.extra = value.extra;
 
     const review = normalizeReviewState(value.review);

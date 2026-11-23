@@ -65,8 +65,9 @@ Also exported: `normalizeFlashcard`, `normalizeSettings`, `normalizeReviewLog`
   "@type": "flashcard",
   "frontText": "pivo",
   "backText": "beer",
-  "hint": "magical drink",     // optional
-  "extra": "Jedno pivo, prosím.", // optional: more about the answer, shown with it
+  "hint": "Dám si pivo.",      // optional: a hint for the front, when it is the question
+  "backHint": "I'll have a beer.", // optional: a hint for the back, when it is the question
+  "extra": "Plural: piva",     // optional: more about the answer, shown with it
   "group": "food",
   "createdAt": "2026-01-02T03:04:05.000Z",
   "updatedAt": "2026-01-02T03:04:05.000Z",

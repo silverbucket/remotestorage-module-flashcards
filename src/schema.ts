@@ -38,7 +38,10 @@ export const flashcardSchema = {
         "@type": { enum: ["flashcard"] },
         frontText: { type: "string" },
         backText: { type: "string" },
+        /** A hint for the front, for when it is the question: front → back. */
         hint: { type: "string" },
+        /** A hint for the back, for when it is the question: back → front. */
+        backHint: { type: "string" },
         /** More about the answer (an example, notes, a table), shown with it. */
         extra: { type: "string" },
         group: { type: "string", minLength: 1 },
