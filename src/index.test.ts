@@ -77,6 +77,14 @@ describe("normalizeFlashcard", () => {
             updatedAt: "2018-10-26T09:00:00.000Z",
         });
     });
+    test("keeps a hint for each side, and drops one that is empty or not text", () => {
+        const card = normalizeFlashcard({ "@id": "x", hint: "Dám si pivo.", backHint: "I'll have a beer." });
+        expect(card?.hint).toBe("Dám si pivo.");
+        expect(card?.backHint).toBe("I'll have a beer.");
+        expect(normalizeFlashcard({ "@id": "x", backHint: "" })).not.toHaveProperty("backHint");
+        expect(normalizeFlashcard({ "@id": "x", backHint: 3 })).not.toHaveProperty("backHint");
+    });
+
     test("keeps extra, and drops it when empty or not text", () => {
         expect(normalizeFlashcard({ "@id": "x", extra: "Jedno pivo, prosím." })?.extra).toBe("Jedno pivo, prosím.");
         expect(normalizeFlashcard({ "@id": "x", extra: "" })).not.toHaveProperty("extra");
@@ -118,6 +126,11 @@ describe("store", () => {
         expect(await flashcards.getAllByGroup("one")).toHaveLength(0);
         expect(await flashcards.getAllByGroup("two")).toHaveLength(1);
         expect(await flashcards.listGroups()).toEqual(["two"]);
+    });
+
+    test("stores a hint for the back", async () => {
+        const card = await flashcards.store({ frontText: "pivo", backText: "beer", backHint: "I'll have a beer." });
+        expect((await flashcards.get("default", card["@id"]))?.backHint).toBe("I'll have a beer.");
     });
 
     test("stores extra", async () => {
